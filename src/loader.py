@@ -1,12 +1,9 @@
-import os, glob, time, calendar, urllib, requests, json
+import os, glob, argparse, time, calendar, requests, json, urllib.parse
 import pandas as pd
 from geopy.geocoders import Nominatim
 from geopy.distance import vincenty
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
-
-# Parse arguments
-import argparse
 
 class ConcertsFinder:
     # Proximity for concert locations to merge (in miles)
@@ -43,7 +40,7 @@ class ConcertsFinder:
         return vincenty((first['lat'], first['lon']), (second['lat'], second['lon'])).miles
 
     def query_by_band(self, name):
-        url =  self.BASE_URL + urllib.quote(name) + self.EVENTS
+        url =  self.BASE_URL + urllib.parse.quote(name) + self.EVENTS
         response = requests.get(url, params=self.STD_PARAMS)
         return response.json()
 
