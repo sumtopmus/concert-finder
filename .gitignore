@@ -1,5 +1,3 @@
 backup
 data/*.txt
-!data/metal.txt
 *.pdf
-!metal.pdf
