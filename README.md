@@ -10,3 +10,5 @@ Install necessary dependencies:
 ```bash
 pip3 install requests pandas geopy jinja2 weasyprint
 ```
+
+To use, create `data` folder and add `*.txt` files there with one band name per line. Then call `src/loader.py`.
