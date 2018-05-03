@@ -13,13 +13,12 @@ class ConcertsFinder:
     outputColumns = ['Bands', 'Date', 'Day', 'Location', 'Venue']
 
     # URLs
-    BASE_URL = 'http://api.bandsintown.com/artists/'
-    EVENTS = '/events.json'
-    API_VERSION = '2.0'
+    BASE_URL = 'https://rest.bandsintown.com/artists/'
+    EVENTS = '/events'
+    API_VERSION = '3.0.0'
     APP_ID = 'concerts_finder'
 
-    STD_PARAMS = {'api_version': API_VERSION,
-                  'app_id': APP_ID}
+    STD_PARAMS = {'app_id': APP_ID}
 
     # Files
     BANDS_FILES = 'data/*.txt'
@@ -49,7 +48,7 @@ class ConcertsFinder:
         result = []
         for concert in data:
             datetime = concert['datetime']
-            processed = {'Bands': ', '.join([band['name'] for band in concert['artists']]),
+            processed = {'Bands': ', '.join(concert['lineup']),
                          'Date': datetime[:datetime.index('T')],
                          'Country': concert['venue']['country'],
                          'Region': concert['venue']['region'],
