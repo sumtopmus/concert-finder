@@ -23,6 +23,7 @@ class ConcertsFinder:
 
     # Files
     BANDS_FILES = 'data/*.txt'
+    TEST_BAND = 'test/test.txt'
     TEMPLATE_FILE = 'templates/template.html'
     STYLE_FILE = 'templates/typography.css'
 
@@ -74,7 +75,8 @@ class ConcertsFinder:
         return json.dumps(jsonObj, indent=4, sort_keys=True)
 
     def df_to_pdf(self, df, fileName):
-        df['Location'] = df.City + ', ' + df.Region # + ' (' + df.Country + ')'
+        df.loc[df.Region.notnull() & (df.Region != ''), 'Location'] = df.City + ', ' + df.Region
+        df.loc[df.Region.isnull() | (df.Region == ''), 'Location'] = df.City + ', ' + df.Country
         df['Day'] = [calendar.day_name[date.weekday()] for date in df.Date]
 
         env = Environment(loader=FileSystemLoader('.'))
@@ -104,6 +106,25 @@ class ConcertsFinder:
             if mergedData:
                 df = pd.read_json(self.json_to_str(mergedData))
                 self.df_to_pdf(df, os.path.splitext(os.path.basename(fileName))[0])
+
+        os.chdir(curDir)
+
+    def test(self):
+        self.origin = self.get_origin_coords()
+
+        curDir = os.getcwd()
+        os.chdir(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+
+        data = []
+        with open(self.TEST_BAND, 'rb') as f:
+            for band in f:
+                data.extend(self.process_data(self.query_by_band( band.strip() )))
+
+        sortedData = sorted(data, key = lambda x: x['Date'] + x['City'] + x['Bands'])
+        mergedData = self.merge_sorted_data(sortedData)
+        if mergedData:
+            df = pd.read_json(self.json_to_str(mergedData))
+            self.df_to_pdf(df, os.path.splitext(os.path.basename(self.TEST_BAND))[0])
 
         os.chdir(curDir)
 
