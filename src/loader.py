@@ -75,8 +75,8 @@ class ConcertsFinder:
         return json.dumps(jsonObj, indent=4, sort_keys=True)
 
     def df_to_pdf(self, df, fileName):
-        df.loc[df.Region.notnull() & (df.Region != ''), 'Location'] = df.City + ', ' + df.Region
-        df.loc[df.Region.isnull() | (df.Region == ''), 'Location'] = df.City + ', ' + df.Country
+        df.loc[(df.Country == 'United States') | (df.Country == 'Canada'), 'Location'] = df.City + ', ' + df.Region
+        df.loc[(df.Country != 'United States') & (df.Country != 'Canada'), 'Location'] = df.City + ', ' + df.Country
         df['Day'] = [calendar.day_name[date.weekday()] for date in df.Date]
 
         env = Environment(loader=FileSystemLoader('.'))
