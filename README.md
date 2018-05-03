@@ -1,4 +1,4 @@
-# ConcertsFinder
+# concert-finder
 Python script to look for the concerts of favorite bands around.
 
 On Linux preinstall this for `Pillow`:
