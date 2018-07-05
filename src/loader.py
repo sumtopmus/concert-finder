@@ -1,5 +1,6 @@
 import os, glob, argparse, time, calendar, requests, json, urllib.parse
 import pandas as pd
+from datetime import datetime
 from geopy.geocoders import Nominatim
 from geopy.distance import vincenty
 from jinja2 import Environment, FileSystemLoader
@@ -31,10 +32,10 @@ class ConcertsFinder:
         self.location = location
         self.radius = radius
 
-    def get_origin_coords(self):
-        origin_coords = Nominatim().geocode(self.location)
-        return {'lat': origin_coords.latitude,
-                'lon': origin_coords.longitude}
+    def get_coords(self, location):
+        coords = Nominatim().geocode(location)
+        return {'lat': coords.latitude,
+                'lon': coords.longitude}
 
     def dist(self, first, second):
         return vincenty((first['lat'], first['lon']), (second['lat'], second['lon'])).miles
@@ -47,15 +48,29 @@ class ConcertsFinder:
     def process_data(self, data):
         result = []
         for concert in data:
-            datetime = concert['datetime']
+            dt = concert['datetime']
             processed = {'Bands': ', '.join(concert['lineup']),
-                         'Date': datetime[:datetime.index('T')],
+                         'Date': dt[:dt.index('T')],
                          'Country': concert['venue']['country'],
                          'Region': concert['venue']['region'],
                          'City': concert['venue']['city'],
-                         'Venue': concert['venue']['name'],
-                         'lat': concert['venue']['latitude'],
-                         'lon': concert['venue']['longitude']}
+                         'Venue': concert['venue']['name']}
+
+            if  processed['Country'] == 'United States' or processed['Country'] == 'Canada':
+                processed['Location'] = processed['City'] + ', ' + processed['Region']
+            else:
+                processed['Location'] = processed['City'] + ', ' + processed['Country']
+
+            processed['Day'] = calendar.day_name[datetime.strptime(processed['Date'], '%Y-%m-%d').weekday()]
+
+            if 'latitude' in concert['venue']:
+                processed['lat'] = concert['venue']['latitude']
+                processed['lon'] = concert['venue']['longitude']
+            else:
+                coords = self.get_coords(processed['Location'])
+                processed['lat'] = coords['lat']
+                processed['lon'] = coords['lon']
+
             if self.dist(self.origin, processed) < self.radius:
                 result.append(processed)
         return result
@@ -74,13 +89,8 @@ class ConcertsFinder:
         return json.dumps(jsonObj, indent=4, sort_keys=True)
 
     def df_to_pdf(self, df, fileName):
-        df.loc[(df.Country == 'United States') | (df.Country == 'Canada'), 'Location'] = df.City + ', ' + df.Region
-        df.loc[(df.Country != 'United States') & (df.Country != 'Canada'), 'Location'] = df.City + ', ' + df.Country
-        df['Day'] = [calendar.day_name[date.weekday()] for date in df.Date]
-
         env = Environment(loader=FileSystemLoader('.'))
         template = env.get_template(self.TEMPLATE_FILE)
-        # template = env.get_template(os.path.join(path, TEMPLATE_FILE))
         templateVars = {'title': 'Concerts',
                         'header': 'Concerts around {0} ({1} miles)'.format(self.location, self.radius),
                         'date': time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -89,7 +99,7 @@ class ConcertsFinder:
         HTML(string=htmlOutput).write_pdf('{}.pdf'.format(fileName), stylesheets=[self.STYLE_FILE])
 
     def find(self):
-        self.origin = self.get_origin_coords()
+        self.origin = self.get_coords(self.location)
 
         curDir = os.getcwd()
         os.chdir(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
@@ -109,7 +119,7 @@ class ConcertsFinder:
         os.chdir(curDir)
 
     def test(self):
-        self.origin = self.get_origin_coords()
+        self.origin = self.get_coords(self.location)
 
         curDir = os.getcwd()
         os.chdir(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
