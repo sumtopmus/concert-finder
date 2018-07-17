@@ -34,8 +34,10 @@ class ConcertsFinder:
 
     def get_coords(self, location):
         coords = Nominatim().geocode(location)
-        return {'lat': coords.latitude,
-                'lon': coords.longitude}
+        if coords != None:
+            coords = {'lat': coords.latitude,
+                      'lon': coords.longitude}
+        return coords
 
     def dist(self, first, second):
         return vincenty((first['lat'], first['lon']), (second['lat'], second['lon'])).miles
@@ -68,10 +70,11 @@ class ConcertsFinder:
                 processed['lon'] = concert['venue']['longitude']
             else:
                 coords = self.get_coords(processed['Location'])
-                processed['lat'] = coords['lat']
-                processed['lon'] = coords['lon']
+                if coords != None:
+                    processed['lat'] = coords['lat']
+                    processed['lon'] = coords['lon']
 
-            if self.dist(self.origin, processed) < self.radius:
+            if 'lat' in processed and self.dist(self.origin, processed) < self.radius:
                 result.append(processed)
         return result
 
