@@ -31,9 +31,10 @@ class ConcertsFinder:
     def __init__(self, location, radius):
         self.location = location
         self.radius = radius
+        self.geolocator = Nominatim(user_agent='concert-finder')
 
     def get_coords(self, location):
-        coords = Nominatim().geocode(location)
+        coords = self.geolocator.geocode(location)
         if coords != None:
             coords = {'lat': coords.latitude,
                       'lon': coords.longitude}
