@@ -1,10 +1,18 @@
-import os, glob, argparse, time, calendar, requests, json, urllib.parse
+import os
+import glob
+import argparse
+import time
+import calendar
+import requests
+import json
+import urllib.parse
 import pandas as pd
 from datetime import datetime
 from geopy.geocoders import Nominatim
 from geopy.distance import vincenty
 from jinja2 import Environment, FileSystemLoader
 from weasyprint import HTML
+
 
 class ConcertsFinder:
     # Proximity for concert locations to merge (in miles)
@@ -35,7 +43,7 @@ class ConcertsFinder:
 
     def get_coords(self, location):
         coords = self.geolocator.geocode(location)
-        if coords != None:
+        if coords is not None:
             coords = {'lat': coords.latitude,
                       'lon': coords.longitude}
         return coords
@@ -44,7 +52,7 @@ class ConcertsFinder:
         return vincenty((first['lat'], first['lon']), (second['lat'], second['lon'])).miles
 
     def query_by_band(self, name):
-        url =  self.BASE_URL + urllib.parse.quote(name) + self.EVENTS
+        url = self.BASE_URL + urllib.parse.quote(name) + self.EVENTS
         response = requests.get(url, params=self.STD_PARAMS)
         return response.json()
 
@@ -59,19 +67,22 @@ class ConcertsFinder:
                          'City': concert['venue']['city'],
                          'Venue': concert['venue']['name']}
 
-            if  processed['Country'] == 'United States' or processed['Country'] == 'Canada':
-                processed['Location'] = processed['City'] + ', ' + processed['Region']
+            if processed['Country'] == 'United States' or processed['Country'] == 'Canada':
+                processed['Location'] = processed['City'] + \
+                    ', ' + processed['Region']
             else:
-                processed['Location'] = processed['City'] + ', ' + processed['Country']
+                processed['Location'] = processed['City'] + \
+                    ', ' + processed['Country']
 
-            processed['Day'] = calendar.day_name[datetime.strptime(processed['Date'], '%Y-%m-%d').weekday()]
+            processed['Day'] = calendar.day_name[datetime.strptime(
+                processed['Date'], '%Y-%m-%d').weekday()]
 
             if 'latitude' in concert['venue']:
                 processed['lat'] = concert['venue']['latitude']
                 processed['lon'] = concert['venue']['longitude']
             else:
                 coords = self.get_coords(processed['Location'])
-                if coords != None:
+                if coords is not None:
                     processed['lat'] = coords['lat']
                     processed['lon'] = coords['lon']
 
@@ -81,10 +92,10 @@ class ConcertsFinder:
 
     def merge_sorted_data(self, data):
         index = 0
-        while index < len(data)-1:
-            if data[index]['Date'] == data[index+1]['Date'] and self.dist(data[index], data[index+1]) < self.eps:
-                data[index]['Bands'] += ', ' + data[index+1]['Bands']
-                del data[index+1]
+        while index < len(data) - 1:
+            if data[index]['Date'] == data[index + 1]['Date'] and self.dist(data[index], data[index + 1]) < self.eps:
+                data[index]['Bands'] += ', ' + data[index + 1]['Bands']
+                del data[index + 1]
             else:
                 index += 1
         return data
@@ -100,7 +111,8 @@ class ConcertsFinder:
                         'date': time.strftime("%Y-%m-%d %H:%M:%S"),
                         'table': df.to_html(columns=self.outputColumns, index=False)}
         htmlOutput = template.render(templateVars)
-        HTML(string=htmlOutput).write_pdf('{}.pdf'.format(fileName), stylesheets=[self.STYLE_FILE])
+        HTML(string=htmlOutput).write_pdf('{}.pdf'.format(
+            fileName), stylesheets=[self.STYLE_FILE])
 
     def find(self):
         self.origin = self.get_coords(self.location)
@@ -112,13 +124,15 @@ class ConcertsFinder:
             data = []
             with open(fileName, 'rb') as f:
                 for band in f:
-                    data.extend(self.process_data(self.query_by_band( band.strip() )))
+                    data.extend(self.process_data(
+                        self.query_by_band(band.strip())))
 
-            sortedData = sorted(data, key = lambda x: x['Date'] + x['City'] + x['Bands'])
+            sortedData = sorted(data, key=lambda x: x['Date'] + x['City'] + x['Bands'])
             mergedData = self.merge_sorted_data(sortedData)
             if mergedData:
                 df = pd.read_json(self.json_to_str(mergedData))
-                self.df_to_pdf(df, os.path.splitext(os.path.basename(fileName))[0])
+                self.df_to_pdf(df, os.path.splitext(
+                    os.path.basename(fileName))[0])
 
         os.chdir(curDir)
 
@@ -131,15 +145,19 @@ class ConcertsFinder:
         data = []
         with open(self.TEST_BAND, 'rb') as f:
             for band in f:
-                data.extend(self.process_data(self.query_by_band( band.strip() )))
+                data.extend(self.process_data(
+                    self.query_by_band(band.strip())))
 
-        sortedData = sorted(data, key = lambda x: x['Date'] + x['City'] + x['Bands'])
+        sortedData = sorted(
+            data, key=lambda x: x['Date'] + x['City'] + x['Bands'])
         mergedData = self.merge_sorted_data(sortedData)
         if mergedData:
             df = pd.read_json(self.json_to_str(mergedData))
-            self.df_to_pdf(df, os.path.splitext(os.path.basename(self.TEST_BAND))[0])
+            self.df_to_pdf(df, os.path.splitext(
+                os.path.basename(self.TEST_BAND))[0])
 
         os.chdir(curDir)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
@@ -147,9 +165,9 @@ if __name__ == '__main__':
         The algorithm processes all text files in 'data' folder.
         Each line in a text file should consist of a single band name.''')
     parser.add_argument('-l', nargs='?', type=str, default='New York, NY',
-        metavar='location', help='location to search')
+                        metavar='location', help='location to search')
     parser.add_argument('-d', nargs='?', type=int, default=500,
-        metavar='distance', help='radius of neighborhood (in miles)')
+                        metavar='distance', help='radius of neighborhood (in miles)')
     args = parser.parse_args()
 
     finder = ConcertsFinder(args.l, args.d)
