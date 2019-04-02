@@ -1,17 +1,15 @@
 import os
 import glob
 import argparse
-import time
+import datetime
 import calendar
 import requests
 import json
 import urllib.parse
+import geopy.distance
+import jinja2
+import weasyprint
 import pandas as pd
-from datetime import datetime
-from geopy.geocoders import Nominatim
-from geopy.distance import vincenty
-from jinja2 import Environment, FileSystemLoader
-from weasyprint import HTML
 
 
 class ConcertsFinder:
@@ -39,17 +37,16 @@ class ConcertsFinder:
     def __init__(self, location, radius):
         self.location = location
         self.radius = radius
-        self.geolocator = Nominatim(user_agent='concert-finder')
+        self.geolocator = geopy.geocoders.Nominatim(user_agent='concert-finder')
 
     def get_coords(self, location):
         coords = self.geolocator.geocode(location)
         if coords is not None:
-            coords = {'lat': coords.latitude,
-                      'lon': coords.longitude}
+            coords = {'lat': coords.latitude, 'lon': coords.longitude}
         return coords
 
     def dist(self, first, second):
-        return vincenty((first['lat'], first['lon']), (second['lat'], second['lon'])).miles
+        return geopy.distance.distance((first['lat'], first['lon']), (second['lat'], second['lon'])).miles
 
     def query_by_band(self, name):
         url = self.BASE_URL + urllib.parse.quote(name) + self.EVENTS
@@ -68,14 +65,11 @@ class ConcertsFinder:
                          'Venue': concert['venue']['name']}
 
             if processed['Country'] == 'United States' or processed['Country'] == 'Canada':
-                processed['Location'] = processed['City'] + \
-                    ', ' + processed['Region']
+                processed['Location'] = processed['City'] + ', ' + processed['Region']
             else:
-                processed['Location'] = processed['City'] + \
-                    ', ' + processed['Country']
+                processed['Location'] = processed['City'] + ', ' + processed['Country']
 
-            processed['Day'] = calendar.day_name[datetime.strptime(
-                processed['Date'], '%Y-%m-%d').weekday()]
+            processed['Day'] = calendar.day_name[datetime.datetime.strptime(processed['Date'], '%Y-%m-%d').weekday()]
 
             if 'latitude' in concert['venue']:
                 processed['lat'] = concert['venue']['latitude']
@@ -104,14 +98,14 @@ class ConcertsFinder:
         return json.dumps(jsonObj, indent=4, sort_keys=True)
 
     def df_to_pdf(self, df, fileName):
-        env = Environment(loader=FileSystemLoader('.'))
+        env = jinja2.Environment(loader=jinja2.FileSystemLoader('.'))
         template = env.get_template(self.TEMPLATE_FILE)
         templateVars = {'title': 'Concerts',
                         'header': 'Concerts around {0} ({1} miles)'.format(self.location, self.radius),
-                        'date': time.strftime("%Y-%m-%d %H:%M:%S"),
+                        'date': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
                         'table': df.to_html(columns=self.outputColumns, index=False)}
         htmlOutput = template.render(templateVars)
-        HTML(string=htmlOutput).write_pdf('{}.pdf'.format(
+        weasyprint.HTML(string=htmlOutput).write_pdf('{}.pdf'.format(
             fileName), stylesheets=[self.STYLE_FILE])
 
     def find(self):
