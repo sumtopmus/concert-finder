@@ -5,6 +5,7 @@ import datetime
 import calendar
 import requests
 import json
+import warnings
 import urllib.parse
 import geopy.distance
 import jinja2
@@ -17,7 +18,7 @@ class ConcertsFinder:
     eps = 0.5
 
     # Output columns
-    outputColumns = ['Bands', 'Date', 'Day', 'Location', 'Venue']
+    output_columns = ['Bands', 'Date', 'Day', 'Location', 'Venue']
 
     # URLs
     BASE_URL = 'https://rest.bandsintown.com/artists/'
@@ -25,10 +26,11 @@ class ConcertsFinder:
     API_VERSION = '3.0.0'
     APP_ID = 'concerts_finder'
 
-    STD_PARAMS = {'app_id': APP_ID}
+    PARAMS = {'app_id': APP_ID}
 
     # Files
     BANDS_FILES = 'data/*.txt'
+    OUTPUT_DIR = 'pdf'
     TEST_BAND = 'test/test.txt'
     TEMPLATE_FILE = 'templates/template.html'
     STYLE_FILE = 'templates/typography.css'
@@ -38,6 +40,8 @@ class ConcertsFinder:
         self.location = location
         self.radius = radius
         self.geolocator = geopy.geocoders.Nominatim(user_agent='concert-finder')
+        if not os.path.exists(self.OUTPUT_DIR):
+            os.makedirs(self.OUTPUT_DIR)
 
     def get_coords(self, location):
         coords = self.geolocator.geocode(location)
@@ -50,7 +54,7 @@ class ConcertsFinder:
 
     def query_by_band(self, name):
         url = self.BASE_URL + urllib.parse.quote(name) + self.EVENTS
-        response = requests.get(url, params=self.STD_PARAMS)
+        response = requests.get(url, params=self.PARAMS)
         return response.json()
 
     def process_data(self, data):
@@ -97,16 +101,15 @@ class ConcertsFinder:
     def json_to_str(self, jsonObj):
         return json.dumps(jsonObj, indent=4, sort_keys=True)
 
-    def df_to_pdf(self, df, fileName):
+    def df_to_pdf(self, df, filename):
         env = jinja2.Environment(loader=jinja2.FileSystemLoader('.'))
         template = env.get_template(self.TEMPLATE_FILE)
-        templateVars = {'title': 'Concerts',
+        template_vars = {'title': 'Concerts',
                         'header': 'Concerts around {0} ({1} miles)'.format(self.location, self.radius),
                         'date': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
-                        'table': df.to_html(columns=self.outputColumns, index=False)}
-        htmlOutput = template.render(templateVars)
-        weasyprint.HTML(string=htmlOutput).write_pdf('{}.pdf'.format(
-            fileName), stylesheets=[self.STYLE_FILE])
+                        'table': df.to_html(columns=self.output_columns, index=False)}
+        html_output = template.render(template_vars)
+        weasyprint.HTML(string=html_output).write_pdf(os.path.join(self.OUTPUT_DIR, '{}.pdf'.format(filename)), stylesheets=[self.STYLE_FILE])
 
     def find(self):
         self.origin = self.get_coords(self.location)
@@ -114,19 +117,19 @@ class ConcertsFinder:
         curDir = os.getcwd()
         os.chdir(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
 
-        for fileName in glob.glob(self.BANDS_FILES):
+        for filename in glob.glob(self.BANDS_FILES):
             data = []
-            with open(fileName, 'rb') as f:
+            with open(filename, 'rb') as f:
                 for band in f:
                     data.extend(self.process_data(
                         self.query_by_band(band.strip())))
 
-            sortedData = sorted(data, key=lambda x: x['Date'] + x['City'] + x['Bands'])
-            mergedData = self.merge_sorted_data(sortedData)
-            if mergedData:
-                df = pd.read_json(self.json_to_str(mergedData))
+            sorted_data = sorted(data, key=lambda x: x['Date'] + x['City'] + x['Bands'])
+            merged_data = self.merge_sorted_data(sorted_data)
+            if merged_data:
+                df = pd.read_json(self.json_to_str(merged_data))
                 self.df_to_pdf(df, os.path.splitext(
-                    os.path.basename(fileName))[0])
+                    os.path.basename(filename))[0])
 
         os.chdir(curDir)
 
@@ -142,11 +145,11 @@ class ConcertsFinder:
                 data.extend(self.process_data(
                     self.query_by_band(band.strip())))
 
-        sortedData = sorted(
+        sorted_data = sorted(
             data, key=lambda x: x['Date'] + x['City'] + x['Bands'])
-        mergedData = self.merge_sorted_data(sortedData)
-        if mergedData:
-            df = pd.read_json(self.json_to_str(mergedData))
+        merged_data = self.merge_sorted_data(sorted_data)
+        if merged_data:
+            df = pd.read_json(self.json_to_str(merged_data))
             self.df_to_pdf(df, os.path.splitext(
                 os.path.basename(self.TEST_BAND))[0])
 
@@ -154,6 +157,8 @@ class ConcertsFinder:
 
 
 if __name__ == '__main__':
+    warnings.filterwarnings("ignore", module="weasyprint")
+
     parser = argparse.ArgumentParser(
         description='''Find concerts of favorite bands around you.
         The algorithm processes all text files in 'data' folder.
