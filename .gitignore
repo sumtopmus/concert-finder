@@ -1,3 +1,7 @@
+# Data
 backup
 data/*.txt
 pdf
+
+# Env
+.DS_Store
