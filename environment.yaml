@@ -3,7 +3,8 @@ channels:
   - defaults
   - conda-forge
 dependencies:
-  - python==3.6.6
-  - pip==21.2.4
+  - python==3.12.3
+  - pip==24.0
+  - weasyprint==62.2
   - pip:
     - -r requirements.txt

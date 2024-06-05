@@ -11,6 +11,7 @@ import geopy.distance
 import jinja2
 import weasyprint
 import pandas as pd
+from io import StringIO
 
 
 class ConcertsFinder:
@@ -127,7 +128,7 @@ class ConcertsFinder:
             sorted_data = sorted(data, key=lambda x: x['Date'] + x['City'] + x['Bands'])
             merged_data = self.merge_sorted_data(sorted_data)
             if merged_data:
-                df = pd.read_json(self.json_to_str(merged_data))
+                df = pd.read_json(StringIO(self.json_to_str(merged_data)))
                 self.df_to_pdf(df, os.path.splitext(
                     os.path.basename(filename))[0])
 
@@ -149,7 +150,7 @@ class ConcertsFinder:
             data, key=lambda x: x['Date'] + x['City'] + x['Bands'])
         merged_data = self.merge_sorted_data(sorted_data)
         if merged_data:
-            df = pd.read_json(self.json_to_str(merged_data))
+            df = pd.read_json(StringIO(self.json_to_str(merged_data)))
             self.df_to_pdf(df, os.path.splitext(
                 os.path.basename(self.TEST_BAND))[0])
 

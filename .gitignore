@@ -3,5 +3,8 @@ backup
 data
 pdf
 
+# Dev
+.vscode
+
 # Env
 .DS_Store
